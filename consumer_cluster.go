@@ -7,7 +7,9 @@ import (
 	"os/signal"
 	"time"
 
+	"github.com/AlbinOS/kafka-go-test/models"
 	cluster "github.com/bsm/sarama-cluster"
+	avro "github.com/elodina/go-avro"
 )
 
 func main() {
@@ -42,12 +44,33 @@ ConsumerLoop:
 	for {
 		select {
 		case msg := <-consumer.Messages():
+			fmt.Printf("%d", msg.Value)
 			s := string(msg.Value[:len(msg.Value)])
 			log.Printf("Consumed message time:topic:partition:offset:message %s:%s:%d:%d:%s\n", msg.Timestamp, msg.Topic, msg.Partition, msg.Offset, s)
 			consumed++
 			for k, v := range consumer.Subscriptions() {
 				fmt.Printf("key[%s] value[%v]\n", k, v)
 			}
+
+			// Create a new TestRecord to decode data into
+			decodedRecord := new(models.Device)
+			// Avro stuff
+			reader := avro.NewSpecificDatumReader()
+			// SetSchema must be called before calling Read
+			reader.SetSchema(decodedRecord.Schema())
+
+			// Create a new Decoder with a given buffer
+			decoder := avro.NewBinaryDecoder(msg.Value)
+
+			// Read data into a given record with a given Decoder.
+			err = reader.Read(decodedRecord, decoder)
+			if err != nil {
+				panic(err)
+			}
+
+			log.Println(decodedRecord)
+			log.Println(decodedRecord.Type.Get())
+
 			time.Sleep(1000 * time.Millisecond)
 		case <-signals:
 			break ConsumerLoop

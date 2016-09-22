@@ -1,0 +1,15 @@
+{"namespace": "amoobi.monitoring",
+ "type": "record",
+ "name": "Device",
+ "fields": [
+     {"name": "type", "type": {
+         "type": "enum",
+         "name": "DEVICE_TYPE",
+         "symbols": ["CYCLOP", "PHIDI"]
+     }},
+     {"name": "ip", "type": "string"},
+     {"name": "password", "type": "string"},
+     {"name": "scene", "type": "string"},
+     {"name": "projectDatabase", "type": "string"}
+ ]
+}

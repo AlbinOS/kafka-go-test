@@ -1,8 +1,13 @@
 package main
 
 import (
-	"github.com/Shopify/sarama"
+	"github.com/AlbinOS/kafka-go-test/models"
+	redis "gopkg.in/redis.v4"
 
+	"github.com/Shopify/sarama"
+	avro "github.com/elodina/go-avro"
+
+	"bytes"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -24,6 +29,14 @@ var (
 	keyFile   = flag.String("key", "", "The optional key file for client authentication")
 	caFile    = flag.String("ca", "", "The optional certificate authority file for TLS client authentication")
 	verifySsl = flag.Bool("verify", false, "Optional verify ssl certificates chain")
+
+	// Avro stuff
+	magic_bytes = []byte{0}
+	client      = redis.NewClient(&redis.Options{
+		Addr:     "localhost:6379",
+		Password: "", // no password set
+		DB:       0,  // use default DB
+	})
 )
 
 func main() {
@@ -117,11 +130,39 @@ func (s *Server) collectQueryStringData() http.Handler {
 			return
 		}
 
+		device := models.NewDevice()
+
+		val, err := client.HGetAll("info:10.254.3.121").Result()
+		if err != nil {
+			panic(err)
+		}
+		log.Println(val)
+		device.Ip = val["ip"]
+		device.Password = val["password"]
+		device.ProjectDatabase = val["project_database"]
+		device.Scene = val["scene"]
+		device.Type.SetIndex(models.DEVICE_TYPE_PHIDI)
+
+		writer := avro.NewSpecificDatumWriter()
+		// SetSchema must be called before calling Write
+		writer.SetSchema(device.Schema())
+
+		// Create a new Buffer and Encoder to write to this Buffer
+		buffer := new(bytes.Buffer)
+		encoder := avro.NewBinaryEncoder(buffer)
+
+		writer.Write(device, encoder)
+		someBytes := buffer.Bytes()
+
+		log.Println("device:", device.Password)
+		log.Println("device:", device.Type)
+		log.Println("device in bytes:", someBytes)
+
 		// We are not setting a message key, which means that all messages will
 		// be distributed randomly over the different partitions.
 		partition, offset, err := s.DataCollector.SendMessage(&sarama.ProducerMessage{
 			Topic: "important",
-			Value: sarama.StringEncoder(r.URL.RawQuery),
+			Value: sarama.ByteEncoder(someBytes),
 		})
 
 		if err != nil {
