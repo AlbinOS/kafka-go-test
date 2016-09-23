@@ -5,7 +5,6 @@ import (
 	"log"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/AlbinOS/kafka-go-test/models"
 	cluster "github.com/bsm/sarama-cluster"
@@ -13,7 +12,10 @@ import (
 )
 
 func main() {
-	kafkaClient, err := cluster.NewClient([]string{"localhost:9092"}, nil)
+	config := cluster.NewConfig()
+	config.Group.Return.Notifications = true
+	config.Consumer.Return.Errors = true
+	kafkaClient, err := cluster.NewClient([]string{"localhost:9092"}, config)
 	if err != nil {
 		panic(err)
 	}
@@ -44,13 +46,9 @@ ConsumerLoop:
 	for {
 		select {
 		case msg := <-consumer.Messages():
-			fmt.Printf("%d", msg.Value)
-			s := string(msg.Value[:len(msg.Value)])
-			log.Printf("Consumed message time:topic:partition:offset:message %s:%s:%d:%d:%s\n", msg.Timestamp, msg.Topic, msg.Partition, msg.Offset, s)
 			consumed++
-			for k, v := range consumer.Subscriptions() {
-				fmt.Printf("key[%s] value[%v]\n", k, v)
-			}
+
+			log.Printf("Consumed message time:topic:partition:offset:message %s:%s:%d:%d:%v:%d\n", msg.Timestamp, msg.Topic, msg.Partition, msg.Offset, msg.Value, len(msg.Value))
 
 			// Create a new TestRecord to decode data into
 			decodedRecord := new(models.Device)
@@ -69,9 +67,18 @@ ConsumerLoop:
 			}
 
 			log.Println(decodedRecord)
-			log.Println(decodedRecord.Type.Get())
-
-			time.Sleep(1000 * time.Millisecond)
+		case notification := <-consumer.Notifications():
+			for k, v := range notification.Claimed {
+				fmt.Printf("Claimed : Topic %s - partition %v\n", k, v)
+			}
+			for k, v := range notification.Current {
+				fmt.Printf("Current : Topic %s - partition %v\n", k, v)
+			}
+			for k, v := range notification.Released {
+				fmt.Printf("Released : Topic %s - partition %v\n", k, v)
+			}
+		case error := <-consumer.Errors():
+			fmt.Printf("Error : %s\n", error)
 		case <-signals:
 			break ConsumerLoop
 		}

@@ -136,7 +136,6 @@ func (s *Server) collectQueryStringData() http.Handler {
 		if err != nil {
 			panic(err)
 		}
-		log.Println(val)
 		device.Ip = val["ip"]
 		device.Password = val["password"]
 		device.ProjectDatabase = val["project_database"]
@@ -153,10 +152,6 @@ func (s *Server) collectQueryStringData() http.Handler {
 
 		writer.Write(device, encoder)
 		someBytes := buffer.Bytes()
-
-		log.Println("device:", device.Password)
-		log.Println("device:", device.Type)
-		log.Println("device in bytes:", someBytes)
 
 		// We are not setting a message key, which means that all messages will
 		// be distributed randomly over the different partitions.
