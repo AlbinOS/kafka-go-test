@@ -7,6 +7,7 @@ import (
 	"os/signal"
 
 	"github.com/AlbinOS/kafka-go-test/models"
+	"github.com/Shopify/sarama"
 	cluster "github.com/bsm/sarama-cluster"
 	avro "github.com/elodina/go-avro"
 )
@@ -15,6 +16,7 @@ func main() {
 	config := cluster.NewConfig()
 	config.Group.Return.Notifications = true
 	config.Consumer.Return.Errors = true
+	config.Config.Version = sarama.V0_10_0_0
 	kafkaClient, err := cluster.NewClient([]string{"localhost:9092"}, config)
 	if err != nil {
 		panic(err)
